@@ -1,0 +1,29 @@
+{
+  "name": "check-xlsx",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": "app.js",
+  "pkg": {
+    "assets": [
+      "static/**/*",
+      "view/**/*"
+    ],
+    "targets": [
+      "node10-linux-x64",
+      "node10-macos-x64",
+      "node10-win-x64"
+    ]
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "node-xlsx": "^0.16.1"
+  },
+  "devDependencies": {
+    "pkg": "^5.3.0"
+  }
+}
