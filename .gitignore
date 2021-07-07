@@ -9,6 +9,7 @@ yarn-error.log*
 selenium-debug.log
 /配置表
 /配置表2
+/public
 
 # Editor directories and files
 .idea

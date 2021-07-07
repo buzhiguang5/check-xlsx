@@ -4,7 +4,7 @@ var $path = require("path")
 var xlsx = require('node-xlsx');
  
 var root = $path.join(process.cwd(), '配置表')
-
+console.log('读取目录:' + root)
 var imageCount = 0
 var soundCount = 0
 var distDir =  '__image_all' 
@@ -19,7 +19,6 @@ try{
 	readDir($path.join(root)).then(res=>{
 		checkXlsxFile(allFileCache)
 	}, err=>{
-		console.log(err)
 	})
 }catch(e){
 }
@@ -37,7 +36,6 @@ function readDir(path){
 				var newPath = $path.join(path,ele)
 				if(info.isDirectory()){
 					// console.log("dir: "+ele)
-					currentDir = ele
 					await readDir(newPath)
 				}else{
 					if(/\.(xlsx|xls)$/.test(ele) && ele.indexOf('~$')===-1){ //~$为打开的excel文件
@@ -73,6 +71,9 @@ function checkXlsxFile(fileList){
 						if(row.length > typeRow.length){
 							throw new Error(`列数超出范围。在 ${newPath} 第${index+1}行`)
 						}
+						if(row.length > 0 && row[0] === undefined){
+							throw new Error(`Row ${index+1} 配置错误。在 ${newPath} 第${index+1}行`)
+						}
 						for(let j=0; j<typeRow.length; j++){
 							let col = row[j]
 							if(col !== undefined){ // 允许为空
@@ -81,7 +82,9 @@ function checkXlsxFile(fileList){
 								// console.log(j, dt,col, typeof col)
 								let errTarget = `在 ${newPath} 第${index+1}行第${j+1}列。`
 								if(/(^\s)|(\s$)/.test(col.toString()) ){
-									throw new Error(`'${col}' 首尾有多余的空格符。${errTarget}`)
+									col = col.toString().replace(/(^\r\n|\r|\n)|(\r\n|\r|\n$)/g,' ');
+									// col = col.toString().replace(/\r\n|\r|\n/g,'');
+									throw new Error(`'${col}' 首尾有多余的空格或换行符。${errTarget}`)
 								}
 								switch(dt){
 									case 'int':
@@ -104,7 +107,8 @@ function checkXlsxFile(fileList){
 										JSON.parse(col)
 									}catch(e){
 										// console.log(  ` 333-- ${keyRow[j]} ${index}   [ ${newPath} ]`)
-										col = col.toString().replace(/[\r\n]/g,'');
+										// col = col.toString().replace(/[\r\n]/g,'');
+										col = col.toString().replace(/\r\n|\r|\n/g,'');
 										throw new Error(`'${col}' 为非法的json。${errTarget}`)
 									}
 									break;
@@ -133,7 +137,11 @@ function checkXlsxFile(fileList){
 				// }
 			})()
 		}catch(e){
-			console.log(e)
+			if(e && e.message){
+				console.log('Error:', e.message)
+			}else{
+				console.log(e)
+			}
 			errorFiles ++
 			updateResult()
 		}

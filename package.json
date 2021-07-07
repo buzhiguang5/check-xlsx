@@ -4,23 +4,28 @@
   "description": "",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "pkg . -t node14-win-x64 -o server -d"
   },
-  "bin": "app.js",
+  "bin": "check-xlsx.js",
+  
+
   "pkg": {
-    "assets": [
-      "static/**/*",
-      "view/**/*"
+    "scripts": [
+          "check-xlsx.js",
+          "app/**/*.js",
+          "config/*.js",
+          "!**/node_modules"
     ],
-    "targets": [
-      "node10-linux-x64",
-      "node10-macos-x64",
-      "node10-win-x64"
+    "assets": [
+          "**/node_modules/**/*"
     ]
   },
+
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "node-id3": "^0.2.3",
     "node-xlsx": "^0.16.1"
   },
   "devDependencies": {
