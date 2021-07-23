@@ -14,6 +14,17 @@ var distSoundDir =  '__sound_all'
 // checkOrCreateDir($path.join(root,distDir)) // 检查目录并创建
 // checkOrCreateDir($path.join(root,distSoundDir)) // 检查目录并创建 
 
+var columnBaseKeys = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+var columnKeys = columnBaseKeys.slice()
+for(let i=0; i<columnBaseKeys.length; i++){
+	if(columnKeys[i] === "D"){
+		break
+	}
+	for(let j=0; j<columnBaseKeys.length; j++){
+		columnKeys.push(columnBaseKeys[i] + columnBaseKeys[j])
+	}
+}
+
 let allFileCache = []
 try{
 	readDir($path.join(root)).then(res=>{
@@ -72,7 +83,7 @@ function checkXlsxFile(fileList){
 							throw new Error(`列数超出范围。在 ${newPath} 第${index+1}行`)
 						}
 						if(row.length > 0 && row[0] === undefined){
-							throw new Error(`Row ${index+1} 配置错误。在 ${newPath} 第${index+1}行`)
+							throw new Error(`第 ${index+1} 行配置有误（缺少主键）。在 ${newPath} 第${index+1}行`)
 						}
 						for(let j=0; j<typeRow.length; j++){
 							let col = row[j]
@@ -80,11 +91,15 @@ function checkXlsxFile(fileList){
 								let key = keyRow[j]
 								let dt = typeRow[j]
 								// console.log(j, dt,col, typeof col)
-								let errTarget = `在 ${newPath} 第${index+1}行第${j+1}列。`
-								if(/(^\s)|(\s$)/.test(col.toString()) ){
-									col = col.toString().replace(/(^\r\n|\r|\n)|(\r\n|\r|\n$)/g,' ');
-									// col = col.toString().replace(/\r\n|\r|\n/g,'');
-									throw new Error(`'${col}' 首尾有多余的空格或换行符。${errTarget}`)
+								// let errTarget = `在 ${newPath} 第${index+1}行第${j+1}列。`
+								let errTarget = `在 ${newPath} 第${index+1}行第${columnKeys[j] || j+1}列。`
+								// if(dt !== 'json' && /(^\s)|(\s$)/.test(col.toString()) ){
+								// 	col = col.toString().replace(/(^\r\n|\r|\n)|(\r\n|\r|\n$)/g,' ');
+								// 	// col = col.toString().replace(/\r\n|\r|\n/g,'');
+								// 	throw new Error(`'${col}' 首尾有多余的空格或换行符。${errTarget}`)
+								// }
+								if(col[0] === ' ' || col[col.length-1] === ' '){
+									throw new Error(`'${col}' 首尾有多余的空格。${errTarget}`)
 								}
 								switch(dt){
 									case 'int':
