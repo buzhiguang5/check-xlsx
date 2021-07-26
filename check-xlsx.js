@@ -2,9 +2,10 @@
 var fs = require("fs")
 var $path = require("path")
 var xlsx = require('node-xlsx');
+const chalk = require('chalk');
  
 var root = $path.join(process.cwd(), '配置表')
-console.log('读取目录:' + root)
+console.log('正在读取目录:' + root)
 var imageCount = 0
 var soundCount = 0
 var distDir =  '__image_all' 
@@ -25,15 +26,25 @@ for(let i=0; i<columnBaseKeys.length; i++){
 	}
 }
 
+let sheetsItemMap = {}
 let allFileCache = []
 try{
-	readDir($path.join(root)).then(res=>{
-		checkXlsxFile(allFileCache)
+	readAllFiles($path.join(root)).then(res=>{
+		// 将道具表放到最前，优先读取
+		for(let i=0; i<allFileCache.length; i++){
+			if(allFileCache[i].indexOf('道具表_ItemTemplate.xls')>-1){
+				allFileCache = allFileCache.splice(i,1).concat(allFileCache)
+				break
+			}
+		}
+		// console.log('allFileCache:', allFileCache);
+		checkXlsxFiles(allFileCache)
 	}, err=>{
 	})
 }catch(e){
 }
-function readDir(path){
+// 读取所有文件路径
+function readAllFiles(path){
 	return new Promise(async (resolve, reject)=>{
 		try{
 			var menu = fs.readdirSync(path)
@@ -43,11 +54,11 @@ function readDir(path){
 			}
 			for(let i=0; i<menu.length; i++){
 				let ele = menu[i]
-				var info = fs.statSync($path.join(path,ele))
-				var newPath = $path.join(path,ele)
+				var info = fs.statSync($path.join(path, ele))
+				var newPath = $path.join(path, ele)
 				if(info.isDirectory()){
 					// console.log("dir: "+ele)
-					await readDir(newPath)
+					await readAllFiles(newPath)
 				}else{
 					if(/\.(xlsx|xls)$/.test(ele) && ele.indexOf('~$')===-1){ //~$为打开的excel文件
 						allFileCache.push(newPath)
@@ -62,15 +73,40 @@ function readDir(path){
 		}
 	})
 } 
-function checkXlsxFile(fileList){
+// 检测文件
+async function checkXlsxFiles(fileList){
 	var totalFiles = fileList.length
 	var errorFiles = 0
 	var successFiles = 0
 	for(let i=0; i<fileList.length; i++){
 		try{
 			let newPath = fileList[i];
-			(()=>{
-				// 解析得到文档中的所有 sheet
+			if(i < 1){
+				// 先同步读取道具表
+				let sheetsData = await checkOneFile(newPath)
+				for(let value of sheetsData){
+					sheetsItemMap[value[0]] = value
+				}
+				// console.log('sheetsItemMap:', sheetsItemMap);
+				// console.log('道具表_ItemTemplate 读取完成');
+				updateResult()
+			}else{
+				// 异步读取
+				checkOneFile(newPath).then(res=>{
+					updateResult()
+				},err=>{
+					updateResult(err)
+				})
+			}
+			
+		}catch(e){
+			updateResult(e)
+		}
+	}
+	function checkOneFile(newPath, createMap){
+		return new Promise((resolve, reject)=>{
+			try{
+				let sheetMap = {}
 				var sheets = xlsx.parse(newPath)
 				// console.log('sheets:',sheets)
 				let startIndex = 5 // 开始行的索引（数据类型行）
@@ -85,8 +121,12 @@ function checkXlsxFile(fileList){
 						if(row.length > 0 && row[0] === undefined){
 							throw new Error(`第 ${index+1} 行配置有误（缺少主键）。在 ${newPath} 第${index+1}行`)
 						}
+						if(createMap){
+							sheetMap[row[0]] = 99
+						}
 						for(let j=0; j<typeRow.length; j++){
 							let col = row[j]
+							
 							if(col !== undefined){ // 允许为空
 								let key = keyRow[j]
 								let dt = typeRow[j]
@@ -118,13 +158,38 @@ function checkXlsxFile(fileList){
 									}
 									break;
 									case 'json':
+									let jsonData
 									try{
-										JSON.parse(col)
+										jsonData = JSON.parse(col)
 									}catch(e){
 										// console.log(  ` 333-- ${keyRow[j]} ${index}   [ ${newPath} ]`)
 										// col = col.toString().replace(/[\r\n]/g,'');
 										col = col.toString().replace(/\r\n|\r|\n/g,'');
 										throw new Error(`'${col}' 为非法的json。${errTarget}`)
+									}
+									
+									// 检测道具json
+									if(sheetsItemMap && jsonData && newPath.indexOf('道具表_ItemTemplate.xls') === -1){
+										let itemList = []
+										if(Object.prototype.toString.call(jsonData)==="[object Object]" && jsonData.gift){
+											jsonData = jsonData.gift
+										}
+										if(Object.prototype.toString.call(jsonData)==="[object Array]"  && jsonData[0] && jsonData[0].type){
+											itemList = jsonData
+										}
+										for(let i=0; i<itemList.length; i++){
+											if(itemList[i].type === 4 && itemList[i].id){
+												// 查证道具
+												if(sheetsItemMap[itemList[i].id]){
+													// console.log('配置正确！');
+												}else{
+													// console.log('xxxxxxxx配置不正确！');
+													throw new Error(`道具表中未找到相应的id。${errTarget}`)
+												}
+											}
+										}
+
+										// let success = checkItemJson(jsonData, errTarget)
 									}
 									break;
 								}
@@ -132,8 +197,7 @@ function checkXlsxFile(fileList){
 						}
 					}
 				})
-				successFiles ++
-				updateResult()
+				resolve(sheet['data'])
 				// if(info.size>1024){ // 大于1024字节
 				// 	if(/\.(jpg|png|gif)$/i.test(ele)){
 				// 		imageCount ++
@@ -150,24 +214,35 @@ function checkXlsxFile(fileList){
 						
 				// 	}
 				// }
-			})()
-		}catch(e){
+			}catch(e){
+				reject(e)
+			}
+		})
+	}
+	function updateResult(e){
+		if(e){
+			errorFiles ++
 			if(e && e.message){
-				console.log('Error:', e.message)
+				// console.log('Error:', e.message)
+				// console.log(chalk.blue('Error:', e.message))
+				console.log(chalk.hex('#daae29').bgRed.bold('Error:' ) , chalk.hex('#d8050d').bold(e.message))
+				// console.log(chalk.hex('#ff0000').bold('Error:', e.message))
+				// 使用RGB颜色输出
+				// console.log(chalk.rgb(4, 156, 219).underline('MCC'));
+
 			}else{
 				console.log(e)
 			}
-			errorFiles ++
-			updateResult()
+		}else{
+			successFiles ++
 		}
-	}
-	function updateResult(){
 		if(successFiles + errorFiles === totalFiles){
+			console.log(`\n`)
 			console.log(`共检测${totalFiles}个文件，成功${successFiles}，错误${errorFiles}`)
 		}
 	}
 } 
-// 检查目录是否存在，不存在就创建
+// 检查 & 创建目录
 function checkOrCreateDir(path){
 	try{
 		let statInfo = fs.statSync(path)

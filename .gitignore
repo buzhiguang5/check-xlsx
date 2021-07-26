@@ -8,6 +8,7 @@ yarn-error.log*
 /test/e2e/reports/
 selenium-debug.log
 /配置表
+/配置表1
 /配置表2
 /public
 

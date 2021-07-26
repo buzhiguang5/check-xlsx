@@ -8,23 +8,21 @@
     "build": "pkg . -t node14-win-x64 -o server -d"
   },
   "bin": "check-xlsx.js",
-  
-
   "pkg": {
     "scripts": [
-          "check-xlsx.js",
-          "app/**/*.js",
-          "config/*.js",
-          "!**/node_modules"
+      "check-xlsx.js",
+      "app/**/*.js",
+      "config/*.js",
+      "!**/node_modules"
     ],
     "assets": [
-          "**/node_modules/**/*"
+      "**/node_modules/**/*"
     ]
   },
-
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chalk": "^4.1.1",
     "node-id3": "^0.2.3",
     "node-xlsx": "^0.16.1"
   },
