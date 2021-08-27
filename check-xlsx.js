@@ -4,16 +4,26 @@ var $path = require("path")
 var xlsx = require('node-xlsx');
 const chalk = require('chalk');
  
-var root = $path.join(process.cwd(), '配置表')
-console.log('正在读取目录:' + root)
 var imageCount = 0
 var soundCount = 0
 var distDir =  '__image_all' 
 var distSoundDir =  '__sound_all' 
- 
- 
+
+var versionHistory = [
+	'******* 当前版本：2021-08-27 *******',
+	'2021-08-27 增加id唯一性检测',
+	'2021-08-02 增加道具ID有效性检测',
+	'2021-07-07 修正换行误报Bug',
+	'2021-06-06 初版发布',
+]
+console.log(versionHistory[0]);
+
+paramsHandler()
 // checkOrCreateDir($path.join(root,distDir)) // 检查目录并创建
 // checkOrCreateDir($path.join(root,distSoundDir)) // 检查目录并创建 
+
+var root = $path.join(process.cwd(), '配置表')
+console.log('正在读取目录:' + root)
 
 var columnBaseKeys = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 var columnKeys = columnBaseKeys.slice()
@@ -103,7 +113,7 @@ async function checkXlsxFiles(fileList){
 			updateResult(e)
 		}
 	}
-	function checkOneFile(newPath, createMap){
+	function checkOneFile(newPath){
 		return new Promise((resolve, reject)=>{
 			try{
 				let sheetMap = {}
@@ -113,6 +123,7 @@ async function checkXlsxFiles(fileList){
 				let sheet = sheets[0] // 读取第一张表
 				let keyRow = sheet['data'][4] // 数据类型 int string json long bool
 				let typeRow = sheet['data'][startIndex] // 数据类型 int string json long bool
+				let idMap = {}
 				sheet['data'].forEach((row, index)=>{
 					if(index > 5){
 						if(row.length > typeRow.length){
@@ -121,12 +132,9 @@ async function checkXlsxFiles(fileList){
 						if(row.length > 0 && row[0] === undefined){
 							throw new Error(`第 ${index+1} 行配置有误（缺少主键）。在 ${newPath} 第${index+1}行`)
 						}
-						if(createMap){
-							sheetMap[row[0]] = 99
-						}
+						
 						for(let j=0; j<typeRow.length; j++){
 							let col = row[j]
-							
 							if(col !== undefined){ // 允许为空
 								let key = keyRow[j]
 								let dt = typeRow[j]
@@ -138,6 +146,13 @@ async function checkXlsxFiles(fileList){
 								// 	// col = col.toString().replace(/\r\n|\r|\n/g,'');
 								// 	throw new Error(`'${col}' 首尾有多余的空格或换行符。${errTarget}`)
 								// }
+								if(j === 0 && keyRow[j] === 'id'){
+									// 检测id唯一性
+									if(idMap[col] !== undefined){
+										throw new Error(`主键id重复。${errTarget}`)
+									}
+									idMap[col] = true
+								}
 								if(col[0] === ' ' || col[col.length-1] === ' '){
 									throw new Error(`'${col}' 首尾有多余的空格。${errTarget}`)
 								}
@@ -223,9 +238,9 @@ async function checkXlsxFiles(fileList){
 		if(e){
 			errorFiles ++
 			if(e && e.message){
-				// console.log('Error:', e.message)
+				console.log('Error:', e.message)
 				// console.log(chalk.blue('Error:', e.message))
-				console.log(chalk.hex('#daae29').bgRed.bold('Error:' ) , chalk.hex('#d8050d').bold(e.message))
+				// console.log(chalk.hex('#000000').bgRed.bold('Error:' ) , chalk.hex('#e4131b').bold(e.message))
 				// console.log(chalk.hex('#ff0000').bold('Error:', e.message))
 				// 使用RGB颜色输出
 				// console.log(chalk.rgb(4, 156, 219).underline('MCC'));
@@ -238,7 +253,7 @@ async function checkXlsxFiles(fileList){
 		}
 		if(successFiles + errorFiles === totalFiles){
 			console.log(`\n`)
-			console.log(`共检测${totalFiles}个文件，成功${successFiles}，错误${errorFiles}`)
+			console.log(`读取完成！共检测${totalFiles}个文件，成功${successFiles}，错误${errorFiles}`)
 		}
 	}
 } 
@@ -264,6 +279,27 @@ function checkOrCreateDir(path){
 	//     }
 	// });
 
+}
+
+function logger(data){
+	if(!data) return
+	if(typeof data === 'string'){
+		data = [data]
+	}
+	var splitLine = '-------------------------------------------------------------------'
+	console.log(splitLine)
+	data.forEach((v,i)=>{
+		console.log(v)
+	})
+	console.log(splitLine)
+}
+function paramsHandler(){
+	process.argv.forEach((val, index) => {
+		// console.log(`${index}: ${val}`)
+		if(val === '-v' && versionHistory.length > 0){
+			logger(versionHistory)
+		}
+	})
 }
 setTimeout(()=>{
 	console.log('close')
